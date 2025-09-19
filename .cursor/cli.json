@@ -1,0 +1,42 @@
+{
+  "ai": {
+    "model": "gpt-4",
+    "temperature": 0.1,
+    "systemPrompt": "You are an expert React/TypeScript developer specializing in modern web development with Tailwind CSS, React Query, and accessibility best practices."
+  },
+  
+  "codeGeneration": {
+    "defaultLanguage": "typescript",
+    "includeTypes": true,
+    "includeComments": true
+  },
+  
+  "codeReview": {
+    "enabled": true,
+    "includePerformance": true,
+    "includeAccessibility": true
+  },
+  
+ "rules": [
+      {
+        "name": "enforceTypeScript",
+        "enabled": true,
+        "severity": "error"
+      },
+      {
+        "name": "enforceNamingConventions", 
+        "enabled": true,
+        "severity": "warn",
+        "config": {
+          "booleanPrefixes": ["is", "has", "can", "should"]
+        }
+      }
+    ],
+  
+  "project": {
+    "framework": "react",
+    "language": "typescript",
+    "styling": "tailwind",
+    "stateManagement": "react-query"
+  }
+}

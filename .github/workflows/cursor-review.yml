@@ -1,0 +1,66 @@
+name: Cursor Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout PR code
+      - uses: actions/checkout@v3
+
+      # Install Cursor CLI
+      - name: Install Cursor CLI
+        run: |
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Run ESLint
+      - name: Run ESLint
+        run: npm run lint
+
+      # Run TypeScript check
+      - name: Run TypeScript check
+        run: npm run build
+      - name: Configure git identity
+        run: |
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+
+      # Run Cursor Agent Review
+      - name: Run Cursor Agent Review
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          # Verify cursor-agent installation
+          cursor-agent --version
+
+          # Run code review with cursor-agent
+          cursor-agent -p "Review this code for TypeScript best practices, React patterns, naming conventions, accessibility, and performance issues. Check against the rules in .cursor/cli.json" > review_output.txt
+
+          echo "## 📋 Cursor Agent Review" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🤖 AI Review Results:" >> $GITHUB_STEP_SUMMARY
+          cat review_output.txt >> $GITHUB_STEP_SUMMARY
+
+          # Check if there are blocking issues
+          if grep -qi "error\|block\|fail\|critical" review_output.txt; then
+            echo "❌ Critical issues found by Cursor Agent"
+            exit 1
+          else
+            echo "✅ No critical issues found"
+          fi
