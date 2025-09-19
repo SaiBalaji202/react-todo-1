@@ -6,11 +6,13 @@ const TodoList = () => {
   const { data: todos, isLoading, isRefetching, error } = useTodos();
   console.log("Refetching", isRefetching);
 
+  const test = false;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-2xl font-bold flex items-center gap-2">
-          📋 Todo List
+          📋 Todo List {test ? "true" : "false"}
           {todos && (
             <span className="text-sm font-normal text-muted-foreground">
               ({todos.length} {todos.length === 1 ? "task" : "tasks"})
