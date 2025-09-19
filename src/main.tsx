@@ -7,7 +7,17 @@ import App from "./App.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <QueryClientProvider client={new QueryClient()}>
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: {
+            queries: {
+              staleTime: 1000 * 60 * 5, // 5 minutes
+            },
+          },
+        })
+      }
+    >
       <App />
       <ReactQueryDevtools />
     </QueryClientProvider>
