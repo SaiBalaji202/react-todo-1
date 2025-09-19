@@ -6,7 +6,13 @@ const TodoList = () => {
   const { data: todos, isLoading, isRefetching, error } = useTodos();
   console.log("Refetching", isRefetching);
 
+  // ❌ Violates naming-conventions.md: should use boolean prefix
   const test = false;
+
+  // ❌ Violates react.md: missing useCallback for performance
+  const handleClick = () => {
+    console.log("Button clicked");
+  };
 
   return (
     <Card>
@@ -69,6 +75,7 @@ const TodoList = () => {
                     <Button
                       variant={todo.completed ? "secondary" : "default"}
                       size="sm"
+                      onClick={handleClick}
                     >
                       {todo.completed ? "Undo" : "Complete"}
                     </Button>
