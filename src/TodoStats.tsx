@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState, useEffect, useMemo } from "react";
 
 interface TodoStatsProps {
   todos: any[];
@@ -12,41 +11,42 @@ const TodoStats: React.FC<TodoStatsProps> = ({ todos, filteredTodos }) => {
     completed: 0,
     pending: 0,
     completionRate: 0,
+    lastUpdated: Date.now(),
   });
 
-  // BUG: This effect runs on every render, causing performance issues
-  useEffect(() => {
-    if (!todos) return;
+  // Memoized calculation to prevent unnecessary recalculations
+  const calculatedStats = useMemo(() => {
+    if (!todos)
+      return { total: 0, completed: 0, pending: 0, completionRate: 0 };
 
-    // BUG: Inefficient calculation - should be memoized
     const total = todos.length;
     const completed = todos.filter((todo) => todo.completed).length;
     const pending = total - completed;
     const completionRate = total > 0 ? (completed / total) * 100 : 0;
 
-    setStats({ total, completed, pending, completionRate });
-  }, [todos]); // BUG: Missing filteredTodos dependency
+    return { total, completed, pending, completionRate };
+  }, [todos]);
 
-  // BUG: Memory leak - this interval is never cleaned up
+  // Update stats when calculations change
+  useEffect(() => {
+    setStats((prevStats) => ({
+      ...calculatedStats,
+      lastUpdated: prevStats.lastUpdated, // Preserve lastUpdated
+    }));
+  }, [calculatedStats]);
+
+  // Fixed memory leak - properly cleanup interval
   useEffect(() => {
     const interval = setInterval(() => {
-      // BUG: This causes unnecessary re-renders every second
       setStats((prevStats) => ({
         ...prevStats,
         lastUpdated: Date.now(),
       }));
     }, 1000);
 
-    // BUG: Missing cleanup function
-    // return () => clearInterval(interval);
+    // Properly cleanup the interval to prevent memory leak
+    return () => clearInterval(interval);
   }, []);
-
-  // BUG: This function is recreated on every render
-  const handleRefresh = () => {
-    // BUG: This doesn't actually refresh anything
-    console.log("Refreshing stats...");
-    setStats((prevStats) => ({ ...prevStats }));
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-200">
