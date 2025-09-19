@@ -7,16 +7,21 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       # Checkout PR code
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # Install Cursor CLI
       - name: Install Cursor CLI
         run: |
           curl https://cursor.com/install -fsS | bash
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
 
       # Setup Node.js
       - name: Setup Node.js
@@ -33,6 +38,10 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      # Run TypeScript check
+      - name: Run TypeScript check
+        run: npm run build
+
       - name: Configure git identity
         run: |
           git config user.name "Cursor Agent"
@@ -42,12 +51,28 @@ jobs:
       - name: Run Cursor Agent Review
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        timeout-minutes: 10
         run: |
           # Verify cursor-agent installation
-          cursor-agent --version
+          echo "Checking cursor-agent installation..."
+          if ! cursor-agent --version; then
+            echo "❌ cursor-agent not found or not working"
+            exit 1
+          fi
 
-          # Run code review with cursor-agent
-          cursor-agent -p "Review this code for TypeScript best practices, React patterns, naming conventions, accessibility, and performance issues. Check against the rules in .cursor/cli.json" > review_output.txt
+          # Run code review with cursor-agent using proper non-interactive mode
+          echo "Starting code review..."
+          cursor-agent \
+            --debug \
+            --force \
+            --model "gpt-5" \
+            --output-format=text \
+            --print "Review this code for TypeScript best practices, React patterns, naming conventions, accessibility, and performance issues. Check against the rules in .cursor/cli.json. Provide a concise summary of findings." \
+            > review_output.txt 2>&1 || {
+            echo "❌ cursor-agent command failed"
+            cat review_output.txt
+            exit 1
+          }
 
           echo "## 📋 Cursor Agent Review" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
