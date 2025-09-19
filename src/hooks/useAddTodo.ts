@@ -1,3 +1,4 @@
+import { QUERY_KEYS } from "@/constants";
 import todoApi, { type Todo } from "@/services/todo";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -11,9 +12,9 @@ export const useAddTodo = (onAddTodo: (todo: Todo) => void) => {
     return useMutation<Todo, Error, Todo, TodoContext>({
         mutationFn: todoApi.post,
         onMutate: (todo) => {
-          const previousTodos = queryClient.getQueryData<Todo[]>(["todos"]) || [];
+          const previousTodos = queryClient.getQueryData<Todo[]>(QUERY_KEYS.TODOS) || [];
     
-          queryClient.setQueryData(["todos"], (old: Todo[]) => {
+          queryClient.setQueryData(QUERY_KEYS.TODOS, (old: Todo[]) => {
             return [todo, ...old];
           });
     
@@ -24,9 +25,9 @@ export const useAddTodo = (onAddTodo: (todo: Todo) => void) => {
         onSuccess: (savedTodo, localyAddedTodo) => {
           console.log({ savedTodo, localyAddedTodo });
     
-          // queryClient.invalidateQueries({ queryKey: ["todos"] });
+          // queryClient.invalidateQueries({ queryKey: QUERY_KEYS.TODOS });
     
-          queryClient.setQueryData(["todos"], (todos: Todo[]) => {
+          queryClient.setQueryData(QUERY_KEYS.TODOS, (todos: Todo[]) => {
             return todos.map((todo) =>
               todo !== localyAddedTodo ? todo : savedTodo
             );
@@ -36,7 +37,7 @@ export const useAddTodo = (onAddTodo: (todo: Todo) => void) => {
           if (!context) return;
     
           console.log(error.message);
-          queryClient.setQueryData(["todos"], context.previousTodos);
+          queryClient.setQueryData(QUERY_KEYS.TODOS, context.previousTodos);
         },
       })
 }
