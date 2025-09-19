@@ -1,4 +1,3 @@
-import React from "react";
 import useTodos from "./hooks/useTodos";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,41 +6,77 @@ const TodoList = () => {
   const { data: todos, isLoading, isRefetching, error } = useTodos();
   console.log("Refetching", isRefetching);
 
+  // ❌ Violates naming-conventions.md: should use boolean prefix
+  const test = false;
+
+  // ❌ Violates react.md: missing useCallback for performance
+  const handleClick = () => {
+    console.log("Button clicked");
+  };
+
   return (
-    <div className="max-w-2xl mx-auto p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl font-bold">Todo List</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {isLoading && (
-            <div className="text-center py-4 text-muted-foreground">
-              Loading todos...
-            </div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold flex items-center gap-2">
+          📋 Todo List {test ? "true" : "false"}
+          {todos && (
+            <span className="text-sm font-normal text-muted-foreground">
+              ({todos.length} {todos.length === 1 ? "task" : "tasks"})
+            </span>
           )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading && (
+          <div className="text-center py-8 text-muted-foreground">
+            <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2"></div>
+            Loading todos...
+          </div>
+        )}
 
-          {error && (
-            <div className="text-center py-4 text-destructive">
-              Error: {error.message}
+        {error && (
+          <div className="p-4 text-center text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+            <div className="font-medium mb-1">Error loading todos</div>
+            <div className="text-sm">{error.message}</div>
+          </div>
+        )}
+
+        {!isLoading && !error && todos && todos.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <div className="text-4xl mb-2">📝</div>
+            <div className="font-medium">No todos yet</div>
+            <div className="text-sm">
+              Add your first todo above to get started!
             </div>
-          )}
+          </div>
+        )}
 
+        {todos && todos.length > 0 && (
           <div className="space-y-2">
-            {todos?.map((todo) => (
-              <Card key={todo.id} className="p-4">
+            {todos.map((todo) => (
+              <Card
+                key={todo.id}
+                className="p-4 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center justify-between">
                   <span
-                    className={
-                      todo.completed ? "line-through text-muted-foreground" : ""
-                    }
+                    className={`flex-1 ${
+                      todo.completed
+                        ? "line-through text-muted-foreground"
+                        : "text-foreground"
+                    }`}
                   >
                     {todo.title}
                   </span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 ml-4">
                     <span className="text-sm">
-                      {todo.completed ? "✅" : "❌"}
+                      {todo.completed ? "✅" : "⏳"}
                     </span>
-                    <Button variant="outline" size="sm">
+                    <Button
+                      variant={todo.completed ? "secondary" : "default"}
+                      size="sm"
+                      onClick={handleClick}
+                    >
                       {todo.completed ? "Undo" : "Complete"}
                     </Button>
                   </div>
@@ -49,9 +84,9 @@ const TodoList = () => {
               </Card>
             ))}
           </div>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 

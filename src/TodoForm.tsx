@@ -23,19 +23,24 @@ export default function TodoForm() {
   };
 
   return (
-    <>
+    <div className="space-y-4">
       {addTodo.error && (
-        <div className="text-red-500">{addTodo.error.message}</div>
+        <div className="p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-md">
+          {addTodo.error.message}
+        </div>
       )}
 
-      <div className="flex justify-center" onSubmit={handleSubmit}>
-        <form className="flex gap-2">
-          <Input type="text" ref={todoRef} placeholder="Add a new todo" />
-          <Button type="submit" disabled={addTodo.isPending}>
-            {addTodo.isPending ? "Adding..." : "Add"}
-          </Button>
-        </form>
-      </div>
-    </>
+      <form className="flex gap-2" onSubmit={handleSubmit}>
+        <Input
+          type="text"
+          ref={todoRef}
+          placeholder="Add a new todo..."
+          className="flex-1"
+        />
+        <Button type="submit" disabled={addTodo.isPending}>
+          {addTodo.isPending ? "Adding..." : "Add Todo"}
+        </Button>
+      </form>
+    </div>
   );
 }
