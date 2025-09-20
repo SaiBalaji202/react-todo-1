@@ -1,4 +1,3 @@
-import "./App.css";
 import TodoForm from "./TodoForm";
 import TodoList from "./TodoList";
 

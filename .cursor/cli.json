@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(**/*.md)",
+      "Write(docs/**/*)",
+      "Shell(grep)",
+      "Shell(find)"
+    ],
+    "deny": ["Shell(git)", "Shell(gh)", "Write(.env*)", "Write(package.json)"]
+  }
+}

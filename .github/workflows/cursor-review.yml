@@ -1,0 +1,160 @@
+name: Cursor Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      # Checkout PR code
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Install Cursor Agent
+      - name: Install Cursor Agent
+        run: |
+          echo "Installing Cursor Agent..."
+          curl https://cursor.com/install -fsS | bash
+          echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+
+          # Verify cursor-agent is available
+          echo "Checking cursor-agent installation..."
+          cursor-agent --version || echo "cursor-agent not found - will retry in next step"
+
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      # Install Node.js dependencies for review script
+      - name: Install Node.js dependencies
+        run: |
+          # Ensure we have the necessary Node.js modules
+          npm install --save-dev @types/node
+
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+
+      # Run ESLint
+      - name: Run ESLint
+        run: npm run lint
+
+      # Run TypeScript check
+      - name: Run TypeScript check
+        run: npm run build
+
+      - name: Configure git identity
+        run: |
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+
+      # Setup Cursor Agent Authentication
+      - name: Setup Cursor Agent Authentication
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          echo "Setting up Cursor Agent authentication..."
+
+          # Set the API key for cursor-agent
+          echo "export CURSOR_API_KEY=$CURSOR_API_KEY" >> $GITHUB_ENV
+
+          # Verify cursor-agent is available
+          if ! cursor-agent --version; then
+            echo "❌ cursor-agent not found or not working"
+            echo "Attempting to install cursor-agent..."
+            
+            # Try alternative installation method
+            curl -fsSL https://cursor.com/install | bash || {
+              echo "❌ Failed to install cursor-agent"
+              exit 1
+            }
+            
+            # Add to PATH
+            echo "$HOME/.cursor/bin" >> $GITHUB_PATH
+            export PATH="$HOME/.cursor/bin:$PATH"
+            
+            # Verify installation
+            if ! cursor-agent --version; then
+              echo "❌ cursor-agent still not available after installation"
+              exit 1
+            fi
+          fi
+
+          echo "✅ cursor-agent is available and ready"
+
+      # Run Cursor Agent Code Review
+      - name: Run Cursor Agent Code Review
+        env:
+          CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+        run: |
+          echo "Starting code review with Cursor Agent..."
+
+          # Debug: Check cursor-agent installation
+          echo "=== Cursor Agent Debug Info ==="
+          echo "cursor-agent version:"
+          cursor-agent --version || echo "cursor-agent not found"
+
+          echo "Environment variables:"
+          echo "CURSOR_API_KEY is set: $([ -n "$CURSOR_API_KEY" ] && echo "Yes" || echo "No")"
+
+          echo "Repo: ${{ github.repository }}"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "PR Head SHA: ${{ github.event.pull_request.head.sha }}"
+          echo "PR Base SHA: ${{ github.event.pull_request.base.sha }}"
+
+          # Get the list of changed files in the PR
+          echo "Getting changed files..."
+          git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+
+          # Create the review prompt with file context
+          cat > review_prompt.txt << 'EOF'
+          You are operating in a GitHub Actions runner performing automated code review. The gh CLI is available and authenticated via GH_TOKEN. You may comment on pull requests.
+
+          Context:
+          - Repo: ${{ github.repository }}
+          - PR Number: ${{ github.event.pull_request.number }}
+          - PR Head SHA: ${{ github.event.pull_request.head.sha }}
+          - PR Base SHA: ${{ github.event.pull_request.base.sha }}
+
+          Objectives:
+          1) Re-check existing review comments and reply resolved when addressed.
+          2) Review the current PR diff and flag only clear, high-severity issues.
+          3) Leave very short inline comments (1-2 sentences) on changed lines only and a brief summary at the end.
+          EOF
+
+          # Run code review with cursor-agent on changed files
+          echo "Running cursor-agent review on changed files..."
+          if cursor-agent --force --output-format=text --print "$(cat review_prompt.txt)" --files "$(cat changed_files.txt | tr '\n' ' ')" > review_output.txt 2>&1; then
+            echo "✅ cursor-agent completed successfully"
+          else
+            echo "❌ cursor-agent failed with exit code $?"
+            echo "Error output:"
+            cat review_output.txt
+            exit 1
+          fi
+
+          # Display the review results
+          echo "## 📋 Cursor Agent Review" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🤖 AI Review Results:" >> $GITHUB_STEP_SUMMARY
+          cat review_output.txt >> $GITHUB_STEP_SUMMARY
+
+          # Check if there are blocking issues
+          if grep -qi "error\|block\|fail\|critical" review_output.txt; then
+            echo "❌ Critical issues found by Cursor Agent"
+            exit 1
+          else
+            echo "✅ No critical issues found"
+          fi
