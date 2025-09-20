@@ -96,7 +96,6 @@ jobs:
       - name: Run Cursor Agent Code Review
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-        timeout-minutes: 15
         run: |
           echo "Starting code review with Cursor Agent..."
 
@@ -108,77 +107,54 @@ jobs:
           echo "Environment variables:"
           echo "CURSOR_API_KEY is set: $([ -n "$CURSOR_API_KEY" ] && echo "Yes" || echo "No")"
 
-          # Create a review prompt file
+          echo "Repo: ${{ github.repository }}"
+          echo "PR Number: ${{ github.event.pull_request.number }}"
+          echo "PR Head SHA: ${{ github.event.pull_request.head.sha }}"
+          echo "PR Base SHA: ${{ github.event.pull_request.base.sha }}"
+
+          # Get the list of changed files in the PR
+          echo "Getting changed files..."
+          git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} > changed_files.txt
+          echo "Changed files:"
+          cat changed_files.txt
+
+          # Create the review prompt with file context
           cat > review_prompt.txt << 'EOF'
-          Please review this code for:
-          1. TypeScript best practices and type safety
-          2. React patterns and hooks usage
-          3. Component structure and naming conventions
-          4. Accessibility considerations
-          5. Performance optimizations
-          6. Code organization and maintainability
-          7. Security best practices
+          You are operating in a GitHub Actions runner performing automated code review. The gh CLI is available and authenticated via GH_TOKEN. You may comment on pull requests.
 
-          Provide specific recommendations with line references where applicable.
-          Focus on actionable improvements that can be implemented.
+          Context:
+          - Repo: ${{ github.repository }}
+          - PR Number: ${{ github.event.pull_request.number }}
+          - PR Head SHA: ${{ github.event.pull_request.head.sha }}
+          - PR Base SHA: ${{ github.event.pull_request.base.sha }}
+
+          Objectives:
+          1) Re-check existing review comments and reply resolved when addressed.
+          2) Review the current PR diff and flag only clear, high-severity issues.
+          3) Leave very short inline comments (1-2 sentences) on changed lines only and a brief summary at the end.
           EOF
 
-          # Run cursor-agent for code review
-          echo "Running cursor-agent code review..."
-          cursor-agent \
-            --prompt-file review_prompt.txt \
-            --output review_output.txt \
-            --model "gpt-4" \
-            --verbose || {
-            echo "❌ cursor-agent command failed, trying alternative approach..."
-            
-            # Fallback: Try with different parameters
-            cursor-agent \
-              --prompt "Review this code for TypeScript best practices, React patterns, accessibility, and performance issues. Provide specific recommendations." \
-              --output review_output.txt || {
-              echo "❌ cursor-agent failed with all approaches"
-              echo "Creating fallback review summary..."
-              
-              # Create fallback review
-              cat > review_output.txt << 'EOF'
-          # Code Review Summary (Fallback)
+          # Run code review with cursor-agent on changed files
+          echo "Running cursor-agent review on changed files..."
+          if cursor-agent --force --output-format=text --print "$(cat review_prompt.txt)" --files "$(cat changed_files.txt | tr '\n' ' ')" > review_output.txt 2>&1; then
+            echo "✅ cursor-agent completed successfully"
+          else
+            echo "❌ cursor-agent failed with exit code $?"
+            echo "Error output:"
+            cat review_output.txt
+            exit 1
+          fi
 
-          **Note:** cursor-agent command is not available or not working properly.
-
-          ## Review Status
-          - ✅ ESLint check passed
-          - ✅ TypeScript compilation successful  
-          - ✅ Build process completed
-
-          ## Files Reviewed
-          EOF
-              
-              # Add file list
-              find src -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | while read file; do
-                echo "- $file" >> review_output.txt
-              done
-              
-              cat >> review_output.txt << 'EOF'
-              
-          ## General Recommendations
-          - Review TypeScript types and interfaces
-          - Check React component patterns and hooks usage
-          - Verify accessibility compliance
-          - Optimize performance where possible
-          - Ensure proper error handling
-
-          **Recommendation:** Verify cursor-agent installation and CURSOR_API_KEY configuration.
-          EOF
-            }
-          }
-
-          echo "Code review completed"
-
-          echo "## 📋 Cursor Agent Code Review" >> $GITHUB_STEP_SUMMARY
+          # Display the review results
+          echo "## 📋 Cursor Agent Review" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🤖 AI Review Results:" >> $GITHUB_STEP_SUMMARY
           cat review_output.txt >> $GITHUB_STEP_SUMMARY
 
-          # Review completed successfully
-          echo "✅ Code review completed successfully"
-          echo "Review summary has been added to the GitHub Actions summary"
+          # Check if there are blocking issues
+          if grep -qi "error\|block\|fail\|critical" review_output.txt; then
+            echo "❌ Critical issues found by Cursor Agent"
+            exit 1
+          else
+            echo "✅ No critical issues found"
+          fi
