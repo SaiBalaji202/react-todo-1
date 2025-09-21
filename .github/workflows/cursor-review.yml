@@ -126,6 +126,23 @@ jobs:
           export CURSOR_API_KEY="$CURSOR_API_KEY"
 
           # Run cursor-agent in background with nohup to prevent hanging
+          # Yes, you can manually use the GitHub API to add comments to a pull request.
+          # For each suggestion or issue found, use the GitHub API to add a PR comment.
+          # For inline code suggestions, use the "suggestion" code block format if possible.
+          # Each comment should be posted inline on the exact changed line in the PR diff.
+
+          # Example: To add a review with inline comments (suggestions), use:
+          # gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews \
+          #   -f event=COMMENT \
+          #   -f body="$SUMMARY" \
+          #   -f comments='[$COMMENTS_JSON]'
+
+          # $COMMENTS_JSON should be a JSON array of objects like:
+          # [{ "path": "<file>", "position": <diff_position>, "body": "<issue description>\n\n```suggestion\n<suggested code>\n```" }]
+
+          # For each suggestion, construct and submit the comment using the above API call.
+          # Do NOT use: gh pr review --approve or --request-changes
+
           cursor-agent --force --model "$MODEL" --output-format=text --print 'You are operating in a GitHub Actions runner performing automated code review for a React TypeScript project. You may comment on pull requests. The GitHub CLI is available as `gh` and authenticated via `GH_TOKEN`. Git is available. You have write access to repository contents and can comment on pull requests, but you must not create or edit PRs.
 
           Context:
@@ -139,7 +156,7 @@ jobs:
 
           Objectives:
           1) Review the current PR diff and flag only clear, high-severity issues specific to React TypeScript code.
-          2) For each issue, add a GitHub PR suggestion comment (using the GitHub API) with a concrete code suggestion if possible.
+          2) For each issue, generate a concrete code suggestion if possible.
 
           Procedure:
           - Analyze ONLY for React TypeScript project-specific issues, including:
@@ -169,10 +186,7 @@ jobs:
           - If there are NO issues to report and an existing top-level comment indicating "no issues" already exists (e.g., "✅ no issues", "No issues found", "LGTM"), do NOT submit another comment. Skip submission to avoid redundancy.
           - If there are NO issues to report and NO prior "no issues" comment exists, submit one brief summary comment noting no issues.
           - If there ARE issues to report and a prior "no issues" comment exists, ensure that prior comment is deleted/minimized/marked as superseded before submitting the new review.
-          - If there ARE issues to report, submit ONE review containing ONLY inline comments (each as a PR suggestion using the GitHub API) plus an optional concise summary body. Use the GitHub Reviews API to ensure comments are inline and use the "suggestion" feature for all issues:
-            - Build a JSON array of comments like: [{ "path": "<file>", "position": <diff_position>, "body": "<issue description>\n\n```suggestion\n<suggested code>\n```" }]
-            - Submit via: gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews -f event=COMMENT -f body="$SUMMARY" -f comments='[$COMMENTS_JSON]'
-          - Do NOT use: gh pr review --approve or --request-changes
+          - If there ARE issues to report, for each suggestion or issue found, add it as a separate GitHub PR comment using the GitHub API as described above. For each suggestion, use the "suggestion" code block format if possible. Each comment should be posted inline on the exact changed line in the PR diff.
 
           '
 
