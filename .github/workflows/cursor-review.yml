@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -66,13 +69,6 @@ jobs:
           sudo apt update
           sudo apt install gh -y
 
-      - name: Authenticate GitHub CLI
-        env:
-          GH_TOKEN: ${{ secrets.CURSOR_INTEGRATION_API }}
-        run: |
-          echo "$GH_TOKEN" | gh auth login --with-token
-          gh auth status
-
       - name: Configure git
         run: |
           git config user.name "Cursor Agent"
@@ -112,11 +108,14 @@ jobs:
 
           echo "✅ cursor-agent is available and ready"
 
+      - name: Add review in progress comment
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "👀 Review in progress..."
+
       # Run Cursor Agent Code Review
       - name: Run Cursor Agent Code Review
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
-          GH_TOKEN: ${{ secrets.CURSOR_INTEGRATION_API  }}
           BLOCKING_REVIEW: ${{ vars.BLOCKING_REVIEW || 'false' }}
           MODEL: ${{ vars.MODEL || 'gpt-5' }}
         run: |
@@ -211,13 +210,17 @@ jobs:
           '
 
       - name: Check blocking review results
-        if: env.BLOCKING_REVIEW == 'true'
         run: |
           echo "Checking for critical issues..."
           echo "CRITICAL_ISSUES_FOUND: ${CRITICAL_ISSUES_FOUND:-unset}"
-          if [ "${CRITICAL_ISSUES_FOUND:-false}" = "true" ]; then
-            echo "❌ Critical issues found and blocking review is enabled. Failing the workflow."
-            exit 1
+          if [ "${BLOCKING_REVIEW}" = "true" ]; then
+            if [ "${CRITICAL_ISSUES_FOUND:-false}" = "true" ]; then
+              echo "❌ Critical issues found and blocking review is enabled. Failing the workflow."
+              exit 1
+            else
+              echo "✅ No blocking issues found."
+            fi
           else
-            echo "✅ No blocking issues found."
+            echo "Blocking review is not enabled. Adding 'no issues found' comment."
+            gh pr comment ${{ github.event.pull_request.number }} --body "✅ No issues found."
           fi
