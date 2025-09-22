@@ -27,7 +27,7 @@ const TodoList = () => {
 
           <div className="space-y-2">
             {todos?.map((todo) => (
-              <Card key={todo.id} className="p-4">
+              <Card key={1} className="p-4">
                 <div className="flex items-center justify-between">
                   <span
                     className={
