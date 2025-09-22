@@ -137,7 +137,6 @@ jobs:
             - Accessibility issues (missing alt text, improper ARIA usage, non-interactive elements with click handlers)
             - Avoiding direct DOM manipulation unless necessary
             - Avoiding deprecated React APIs or patterns
-          - Check for .cursor/rules/*.md files and validate the rules to the changes in the PR.  If there are any rules violations, add a PR suggestion comment with the rule violation and the suggested fix.
 
           Commenting rules:
           - Max 10 inline comments total; prioritize the most critical issues
