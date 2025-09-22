@@ -6,11 +6,16 @@ const TodoList = () => {
   const { data: todos, isLoading, isRefetching, error } = useTodos();
   console.log("Refetching", isRefetching);
 
+  const test_variable = "test";
+  const testVariable = "test_2";
+
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Todo List</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            Todo List {test_variable} {testVariable}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading && (
