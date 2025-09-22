@@ -31,6 +31,11 @@ jobs:
           echo "Checking cursor-agent installation..."
           cursor-agent --version || echo "cursor-agent not found - will retry in next step"
 
+      - name: Configure git identity
+        run: |
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
+
       # Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -55,24 +60,6 @@ jobs:
       # Run TypeScript check
       - name: Run TypeScript check
         run: npm run build
-
-      - name: Configure git identity
-        run: |
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
-
-      # Install and authenticate GitHub CLI
-      - name: Install GitHub CLI
-        run: |
-          curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-          sudo apt update
-          sudo apt install gh -y
-
-      - name: Configure git
-        run: |
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
 
       # Setup Cursor Agent Authentication
       - name: Setup Cursor Agent Authentication
