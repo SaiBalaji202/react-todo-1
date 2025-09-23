@@ -96,8 +96,10 @@ jobs:
           echo "✅ cursor-agent is available and ready"
 
       - name: Add review in progress comment
+        id: add-review-comment
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "👀 Review in progress..."
+          COMMENT_ID=$(gh pr comment ${{ github.event.pull_request.number }} --body "👀 Review in progress..." --json id -q '.id')
+          echo "comment_id=$COMMENT_ID" >> $GITHUB_OUTPUT
 
       # Run Cursor Agent Code Review
       - name: Run Cursor Agent Code Review
@@ -160,6 +162,11 @@ jobs:
           - Otherwise: echo "CRITICAL_ISSUES_FOUND=false" >> $GITHUB_ENV
           - Always set CRITICAL_ISSUES_FOUND at the end
           '
+
+      - name: Remove review in progress comment
+        if: steps.add-review-comment.outputs.comment_id != ''
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --delete "${{ steps.add-review-comment.outputs.comment_id }}"
 
       - name: Check blocking review results
         if: steps.cursor-agent-review.outputs.BLOCKING_REVIEW == 'true'
