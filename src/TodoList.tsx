@@ -10,7 +10,9 @@ const TodoList = () => {
     <div className="max-w-2xl mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl font-bold">Todo List</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            Todo List
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {isLoading && (
@@ -27,7 +29,7 @@ const TodoList = () => {
 
           <div className="space-y-2">
             {todos?.map((todo) => (
-              <Card key={todo.id} className="p-4">
+              <Card key={1} className="p-4">
                 <div className="flex items-center justify-between">
                   <span
                     className={

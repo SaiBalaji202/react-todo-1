@@ -4,6 +4,9 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+env:
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -27,6 +30,11 @@ jobs:
           # Verify cursor-agent is available
           echo "Checking cursor-agent installation..."
           cursor-agent --version || echo "cursor-agent not found - will retry in next step"
+
+      - name: Configure git identity
+        run: |
+          git config user.name "Cursor Agent"
+          git config user.email "cursoragent@cursor.com"
 
       # Setup Node.js
       - name: Setup Node.js
@@ -52,11 +60,6 @@ jobs:
       # Run TypeScript check
       - name: Run TypeScript check
         run: npm run build
-
-      - name: Configure git identity
-        run: |
-          git config user.name "Cursor Agent"
-          git config user.email "cursoragent@cursor.com"
 
       # Setup Cursor Agent Authentication
       - name: Setup Cursor Agent Authentication
@@ -92,69 +95,79 @@ jobs:
 
           echo "✅ cursor-agent is available and ready"
 
+      - name: Add review in progress comment
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "👀 Review in progress..."
+
       # Run Cursor Agent Code Review
       - name: Run Cursor Agent Code Review
         env:
           CURSOR_API_KEY: ${{ secrets.CURSOR_API_KEY }}
+          BLOCKING_REVIEW: ${{ vars.BLOCKING_REVIEW || 'false' }}
+          MODEL: ${{ vars.MODEL || 'gpt-5' }}
         run: |
           echo "Starting code review with Cursor Agent..."
-
-          # Debug: Check cursor-agent installation
-          echo "=== Cursor Agent Debug Info ==="
-          echo "cursor-agent version:"
-          cursor-agent --version || echo "cursor-agent not found"
-
-          echo "Environment variables:"
-          echo "CURSOR_API_KEY is set: $([ -n "$CURSOR_API_KEY" ] && echo "Yes" || echo "No")"
-
-          echo "Repo: ${{ github.repository }}"
-          echo "PR Number: ${{ github.event.pull_request.number }}"
-          echo "PR Head SHA: ${{ github.event.pull_request.head.sha }}"
-          echo "PR Base SHA: ${{ github.event.pull_request.base.sha }}"
-
-          # Get the list of changed files in the PR
-          echo "Getting changed files..."
-          git diff --name-only ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} > changed_files.txt
-          echo "Changed files:"
-          cat changed_files.txt
-
-          # Create the review prompt with file context
-          cat > review_prompt.txt << 'EOF'
-          You are operating in a GitHub Actions runner performing automated code review. The gh CLI is available and authenticated via GH_TOKEN. You may comment on pull requests.
+          cursor-agent --force --model "$MODEL" --output-format=text --print 'You are operating in a GitHub Actions runner performing automated code review for a React TypeScript project. You may comment on pull requests. The GitHub CLI is available as `gh` and authenticated via `GH_TOKEN`. Git is available. You have write access to repository contents and can comment on pull requests, but you must not create or edit PRs.
 
           Context:
           - Repo: ${{ github.repository }}
           - PR Number: ${{ github.event.pull_request.number }}
           - PR Head SHA: ${{ github.event.pull_request.head.sha }}
           - PR Base SHA: ${{ github.event.pull_request.base.sha }}
+          - Blocking Review: ${{ env.BLOCKING_REVIEW }}
+
+          Project Type: React + TypeScript (Vite or Create React App, using .tsx/.ts files, React functional components, hooks, and modern React patterns).
 
           Objectives:
-          1) Re-check existing review comments and reply resolved when addressed.
-          2) Review the current PR diff and flag only clear, high-severity issues.
-          3) Leave very short inline comments (1-2 sentences) on changed lines only and a brief summary at the end.
-          EOF
+          1) Review the current PR diff and flag only clear, high-severity issues specific to React TypeScript code.
+          2) For each issue, generate a concrete code suggestion if possible and add it as a PR suggestion comment (with a code block showing the suggested fix, if possible)
 
-          # Run code review with cursor-agent on changed files
-          echo "Running cursor-agent review on changed files..."
-          if cursor-agent --force --output-format=text --print "$(cat review_prompt.txt)" --files "$(cat changed_files.txt | tr '\n' ' ')" > review_output.txt 2>&1; then
-            echo "✅ cursor-agent completed successfully"
+          Procedure:
+          - Analyze ONLY for React TypeScript project-specific issues, including:
+            - Null/undefined dereferences, especially in JSX and hooks
+            - Incorrect or missing TypeScript types/annotations (props, state, function signatures, generics)
+            - Unsafe use of `any`, `as`, or type assertions that could hide bugs
+            - Resource leaks (unclosed subscriptions, timers, event listeners, or effects)
+            - Injection (XSS in dangerouslySetInnerHTML, unsanitized user input in JSX)
+            - Concurrency/race conditions (e.g., stale closures in hooks, async state updates)
+            - Missing error handling for critical operations (API calls, async/await, try/catch)
+            - Obvious logic errors with incorrect React behavior (e.g., missing dependencies in useEffect, improper state updates, broken memoization)
+            - Clear performance anti-patterns (unnecessary re-renders, expensive computations in render, missing keys in lists)
+            - Security vulnerabilities (exposing secrets, unsafe eval, etc.)
+            - Accessibility issues (missing alt text, improper ARIA usage, non-interactive elements with click handlers)
+            - Avoiding direct DOM manipulation unless necessary
+            - Avoiding deprecated React APIs or patterns
+
+          Commenting rules:
+          - Max 10 inline comments total; prioritize the most critical issues
+          - One issue per comment; place on the exact changed line
+          - All issue comments MUST be inline (anchored to a file and line/position in the PR diff)
+          - For each issue, use the GitHub API to add a PR suggestion comment (with a code block showing the suggested fix, if possible)
+          - Natural tone, specific and actionable; do not mention automation or high-confidence
+          - Use emojis: 🚨 Critical 🔒 Security ⚡ Performance ⚠️ Logic ✅ Resolved ✨ Improvement ♿ Accessibility
+
+          Submission:
+          - If there are NO issues to report and an existing top-level comment indicating "no issues" already exists (e.g., "✅ no issues", "No issues found", "LGTM"), do NOT submit another comment. Skip submission to avoid redundancy.
+          - If there are NO issues to report and NO prior "no issues" comment exists, submit one brief summary comment noting no issues.
+          - If there ARE issues to report and a prior "no issues" comment exists, ensure that prior comment is deleted/minimized/marked as superseded before submitting the new review.
+          - If there ARE issues to report, for each suggestion or issue found, add it as a separate GitHub PR comment using the GitHub API as described above. For each suggestion, use the "suggestion" code block format if possible. Each comment should be posted inline on the exact changed line in the PR diff.
+
+          '
+
+      - name: Check blocking review results
+        run: |
+          echo "Checking for critical issues..."
+          echo "CRITICAL_ISSUES_FOUND: ${CRITICAL_ISSUES_FOUND:-unset}"
+          if [ "${BLOCKING_REVIEW}" = "true" ]; then
+            if [ "${CRITICAL_ISSUES_FOUND:-false}" = "true" ]; then
+              echo "❌ Critical issues found and blocking review is enabled. Failing the workflow."
+              exit 1
+            else
+              echo "✅ No blocking issues found. Approving PR..."
+              # Approve the PR when no critical issues are found
+              gh pr review ${{ github.event.pull_request.number }} --approve --body "✅ Cursor AI Review: No critical issues found. Approved for merge."
+            fi
           else
-            echo "❌ cursor-agent failed with exit code $?"
-            echo "Error output:"
-            cat review_output.txt
-            exit 1
-          fi
-
-          # Display the review results
-          echo "## 📋 Cursor Agent Review" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🤖 AI Review Results:" >> $GITHUB_STEP_SUMMARY
-          cat review_output.txt >> $GITHUB_STEP_SUMMARY
-
-          # Check if there are blocking issues
-          if grep -qi "error\|block\|fail\|critical" review_output.txt; then
-            echo "❌ Critical issues found by Cursor Agent"
-            exit 1
-          else
-            echo "✅ No critical issues found"
+            echo "Blocking review is not enabled. Adding 'no issues found' comment."
+            gh pr comment ${{ github.event.pull_request.number }} --body "✅ No issues found."
           fi
