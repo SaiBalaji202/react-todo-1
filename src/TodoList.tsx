@@ -7,6 +7,7 @@ const TodoList = () => {
   const test_variable = "test";
   const testVariable = "test_2";
   console.log("Refetching", isRefetching);
+  console.log("Todos", todos);
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">
@@ -31,7 +32,7 @@ const TodoList = () => {
 
           <div className="space-y-2">
             {todos?.map((todo) => (
-              <Card key={todo.id} className="p-4">
+              <Card key={1} className="p-4">
                 <div className="flex items-center justify-between">
                   <span
                     className={
