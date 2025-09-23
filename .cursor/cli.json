@@ -4,8 +4,10 @@
       "Read(**/*.md)",
       "Write(docs/**/*)",
       "Shell(grep)",
-      "Shell(find)"
+      "Shell(find)", 
+      "Shell(git)", 
+      "Shell(gh)"
     ],
-    "deny": ["Shell(git)", "Shell(gh)", "Write(.env*)", "Write(package.json)"]
+    "deny": ["Write(.env*)", "Write(package.json)"]
   }
 }
