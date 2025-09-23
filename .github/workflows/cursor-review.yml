@@ -98,7 +98,7 @@ jobs:
       - name: Add review in progress comment
         id: add-review-comment
         run: |
-          COMMENT_ID=$(gh pr comment ${{ github.event.pull_request.number }} --body "👀 Review in progress..." --json id -q '.id')
+          COMMENT_ID=$(gh pr comment ${{ github.event.pull_request.number }} --body "👀 Review in progress..." | grep -oE '[0-9]+$')
           echo "comment_id=$COMMENT_ID" >> $GITHUB_OUTPUT
 
       # Run Cursor Agent Code Review
